@@ -24,6 +24,10 @@ def init_db():
         today_str = datetime.now().strftime('%Y-%m-%d')
         c.execute('INSERT INTO settings (key, value) VALUES ("week_start_date", ?)', (today_str,))
     
+    c.execute('SELECT value FROM settings WHERE key = "target_points"')
+    if not c.fetchone():
+        c.execute('INSERT INTO settings (key, value) VALUES ("target_points", "50000")')
+        
     conn.commit()
     conn.close()
 
@@ -46,6 +50,27 @@ def week_start_setting():
         return jsonify({'status': 'success'})
     conn.close()
     return jsonify({'status': 'error'}), 400
+
+@app.route('/settings/target_points', methods=['POST'])
+def target_points_setting():
+    conn = get_db()
+    c = conn.cursor()
+    data = request.get_json()
+    target_val = str(data.get('target', 0))
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("target_points", ?)', (target_val,))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'success'})
+
+@app.route('/archive_current_week', methods=['POST'])
+def archive_current_week():
+    conn = get_db()
+    c = conn.cursor()
+    today_str = datetime.now().strftime('%Y-%m-%d')
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (today_str,))
+    conn.commit()
+    conn.close()
+    return jsonify({'status': 'success'})
 
 @app.route('/add_point', methods=['POST'])
 def add_point():
@@ -73,6 +98,10 @@ def get_summary():
     c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
     row = c.fetchone()
     base_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
+
+    c.execute('SELECT value FROM settings WHERE key = "target_points"')
+    t_row = c.fetchone()
+    target_points = int(t_row['value']) if t_row and t_row['value'].isdigit() else 50000
     
     try:
         base_start = datetime.strptime(base_start_str, '%Y-%m-%d')
@@ -80,8 +109,6 @@ def get_summary():
         base_start = datetime.now()
 
     today_dt = datetime.now().date()
-    
-    # 7日経過している場合は自動で現在の週の開始日に繰り上げ
     diff_days = (today_dt - base_start.date()).days
     if diff_days >= 7:
         weeks_passed = diff_days // 7
@@ -137,6 +164,7 @@ def get_summary():
         'period_label': period_label,
         'week_total': week_total,
         'total_all': total_all,
+        'target_points': target_points,
         'daily_breakdown': daily_breakdown,
         'today_str': today_str,
         'recent_logs': logs
@@ -201,7 +229,7 @@ def get_past_periods():
         d_diff = (dt.date() - base_start.date()).days
         w_index = d_diff // 7
 
-        if w_index < current_week_index:
+        if w_index < current_week_index or dt.date() < base_start.date():
             w_start = base_start + timedelta(days=w_index * 7)
             w_end = w_start + timedelta(days=6)
             label = f"{w_start.strftime('%Y/%m/%d')}〜{w_end.strftime('%m/%d')}"
