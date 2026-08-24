@@ -33,24 +33,19 @@ init_db()
 def index():
     return render_template('index.html')
 
-@app.route('/settings/week_start', methods=['GET', 'POST'])
+@app.route('/settings/week_start', methods=['POST'])
 def week_start_setting():
     conn = get_db()
     c = conn.cursor()
-    if request.method == 'POST':
-        data = request.get_json()
-        new_date = data.get('start_date')
-        if new_date:
-            c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (new_date,))
-            conn.commit()
-            conn.close()
-            return jsonify({'status': 'success'})
-        return jsonify({'status': 'error'}), 400
-    else:
-        c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
-        row = c.fetchone()
+    data = request.get_json()
+    new_date = data.get('start_date')
+    if new_date:
+        c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (new_date,))
+        conn.commit()
         conn.close()
-        return jsonify({'start_date': row['value'] if row else datetime.now().strftime('%Y-%m-%d')})
+        return jsonify({'status': 'success'})
+    conn.close()
+    return jsonify({'status': 'error'}), 400
 
 @app.route('/add_point', methods=['POST'])
 def add_point():
@@ -58,7 +53,7 @@ def add_point():
     amount = data.get('amount', 0)
     target_date_str = data.get('target_date')
     
-    if amount > 0:
+    if amount != 0:
         conn = get_db()
         c = conn.cursor()
         if target_date_str:
@@ -77,22 +72,34 @@ def get_summary():
 
     c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
     row = c.fetchone()
-    start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
+    base_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
     
     try:
-        week_start = datetime.strptime(start_str, '%Y-%m-%d')
+        base_start = datetime.strptime(base_start_str, '%Y-%m-%d')
     except:
-        week_start = datetime.now()
-        start_str = week_start.strftime('%Y-%m-%d')
+        base_start = datetime.now()
 
-    week_end = week_start + timedelta(days=7)
+    today_dt = datetime.now().date()
+    
+    # 7日経過している場合は自動で現在の週の開始日に繰り上げ
+    diff_days = (today_dt - base_start.date()).days
+    if diff_days >= 7:
+        weeks_passed = diff_days // 7
+        current_week_start = base_start + timedelta(days=weeks_passed * 7)
+    elif diff_days < 0:
+        current_week_start = base_start
+    else:
+        current_week_start = base_start
+
+    current_week_start_str = current_week_start.strftime('%Y-%m-%d')
+    week_end = current_week_start + timedelta(days=7)
     today_str = datetime.now().strftime('%Y-%m-%d')
 
     daily_breakdown = []
     week_total = 0
 
     for i in range(7):
-        day_start = week_start + timedelta(days=i)
+        day_start = current_week_start + timedelta(days=i)
         day_end = day_start + timedelta(days=1)
         
         c.execute('''SELECT SUM(amount) FROM logs 
@@ -118,15 +125,15 @@ def get_summary():
                  FROM logs 
                  WHERE created_at >= ? AND created_at < ? 
                  ORDER BY id DESC LIMIT 5''',
-              (week_start.strftime('%Y-%m-%d 00:00:00'), week_end.strftime('%Y-%m-%d 00:00:00')))
+              (current_week_start.strftime('%Y-%m-%d 00:00:00'), week_end.strftime('%Y-%m-%d 00:00:00')))
     logs = [{'id': r['id'], 'amount': r['amount'], 'time': str(r['created_at'])} for r in c.fetchall()]
 
     conn.close()
 
-    period_label = f"{week_start.strftime('%Y/%m/%d')}〜{(week_end - timedelta(days=1)).strftime('%m/%d')}"
+    period_label = f"{current_week_start.strftime('%Y/%m/%d')}〜{(week_end - timedelta(days=1)).strftime('%m/%d')}"
 
     return jsonify({
-        'week_start_date': start_str,
+        'week_start_date': current_week_start_str,
         'period_label': period_label,
         'week_total': week_total,
         'total_all': total_all,
@@ -169,34 +176,55 @@ def get_past_periods():
     
     c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
     row = c.fetchone()
-    current_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
+    base_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
     try:
-        current_start = datetime.strptime(current_start_str, '%Y-%m-%d')
+        base_start = datetime.strptime(base_start_str, '%Y-%m-%d')
     except:
-        current_start = datetime.now()
+        base_start = datetime.now()
+
+    today_dt = datetime.now().date()
+    diff_days = (today_dt - base_start.date()).days
+    current_week_index = diff_days // 7 if diff_days >= 0 else 0
 
     c.execute('SELECT amount, created_at FROM logs ORDER BY created_at ASC')
     rows = c.fetchall()
     conn.close()
 
-    past_archives = {}
+    archives_dict = {}
+
     for r in rows:
         try:
             dt = datetime.strptime(str(r['created_at']).split('.')[0], '%Y-%m-%d %H:%M:%S')
         except:
             dt = datetime.now()
-            
-        diff_days = (dt.date() - current_start.date()).days
-        block_index = diff_days // 7
-        
-        block_start = current_start + timedelta(days=block_index * 7)
-        block_end = block_start + timedelta(days=6)
-        
-        if block_start < current_start:
-            label = f"{block_start.strftime('%Y/%m/%d')}〜{block_end.strftime('%m/%d')}"
-            past_archives[label] = past_archives.get(label, 0) + r['amount']
 
-    result = [{'label': k, 'total': v} for k, v in reversed(list(past_archives.items()))]
+        d_diff = (dt.date() - base_start.date()).days
+        w_index = d_diff // 7
+
+        if w_index < current_week_index:
+            w_start = base_start + timedelta(days=w_index * 7)
+            w_end = w_start + timedelta(days=6)
+            label = f"{w_start.strftime('%Y/%m/%d')}〜{w_end.strftime('%m/%d')}"
+
+            if label not in archives_dict:
+                archives_dict[label] = {
+                    'label': label,
+                    'total': 0,
+                    'days': []
+                }
+                for i in range(7):
+                    day_date = w_start + timedelta(days=i)
+                    archives_dict[label]['days'].append({
+                        'date_label': day_date.strftime('%m/%d'),
+                        'total': 0
+                    })
+
+            day_offset = (dt.date() - w_start.date()).days
+            if 0 <= day_offset < 7:
+                archives_dict[label]['days'][day_offset]['total'] += r['amount']
+                archives_dict[label]['total'] += r['amount']
+
+    result = list(reversed(list(archives_dict.values())))
     return jsonify({'archives': result})
 
 if __name__ == '__main__':
