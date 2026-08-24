@@ -1,0 +1,95 @@
+from flask import Flask, render_template, request, jsonify
+import sqlite3
+from datetime import datetime
+
+app = Flask(__name__)
+
+def init_db():
+    conn = sqlite3.connect('points.db')
+    c = conn.cursor()
+    c.execute('''CREATE TABLE IF NOT EXISTS logs
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  amount INTEGER,
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                  year_week TEXT,
+                  year_month TEXT)''')
+    conn.commit()
+    conn.close()
+
+init_db()
+
+@app.route('/')
+def index():
+    return render_template('index.html')
+
+@app.route('/add_point', methods=['POST'])
+def add_point():
+    data = request.json
+    multiplier = int(data.get('multiplier', 1))
+    amount = multiplier * 100
+    
+    now = datetime.now()
+    year_week = now.strftime("%Y-W%U")
+    year_month = now.strftime("%Y-%m")
+    
+    conn = sqlite3.connect('points.db')
+    c = conn.cursor()
+    c.execute('INSERT INTO logs (amount, year_week, year_month) VALUES (?, ?, ?)',
+              (amount, year_week, year_month))
+    conn.commit()
+    conn.close()
+    
+    return jsonify({"status": "success", "added": amount})
+
+@app.route('/get_summary', methods=['GET'])
+def get_summary():
+    now = datetime.now()
+    current_week = now.strftime("%Y-W%U")
+    current_month = now.strftime("%Y-%m")
+    
+    conn = sqlite3.connect('points.db')
+    c = conn.cursor()
+    
+    c.execute('SELECT SUM(amount) FROM logs WHERE year_week = ?', (current_week,))
+    week_total = c.fetchone()[0] or 0
+    
+    c.execute('SELECT SUM(amount) FROM logs WHERE year_month = ?', (current_month,))
+    month_total = c.fetchone()[0] or 0
+    
+    c.execute('SELECT DISTINCT year_week FROM logs ORDER BY year_week DESC')
+    weeks = [row[0] for row in c.fetchall()]
+    
+    c.execute('SELECT DISTINCT year_month FROM logs ORDER BY year_month DESC')
+    months = [row[0] for row in c.fetchall()]
+    
+    conn.close()
+    
+    return jsonify({
+        "week_total": week_total,
+        "month_total": month_total,
+        "weeks": weeks,
+        "months": months,
+        "current_week": current_week,
+        "current_month": current_month
+    })
+
+@app.route('/get_history', methods=['GET'])
+def get_history():
+    period_type = request.args.get('type')
+    val = request.args.get('value')
+    
+    conn = sqlite3.connect('points.db')
+    c = conn.cursor()
+    
+    if period_type == 'week':
+        c.execute('SELECT SUM(amount) FROM logs WHERE year_week = ?', (val,))
+    else:
+        c.execute('SELECT SUM(amount) FROM logs WHERE year_month = ?', (val,))
+        
+    total = c.fetchone()[0] or 0
+    conn.close()
+    
+    return jsonify({"total": total})
+
+if __name__ == '__main__':
+    app.run(debug=True)
