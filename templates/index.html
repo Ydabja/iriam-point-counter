@@ -10,7 +10,6 @@
             background-color: #f3e8ff;
             background-image: radial-gradient(#c084fc 20%, transparent 20%), radial-gradient(#a855f7 20%, transparent 20%);
             background-size: 24px 24px;
-            background-position: 0 0, 12px 12px;
             margin: 0;
             padding: 15px;
             color: #4c1d95;
@@ -23,7 +22,7 @@
             box-shadow: 0 6px 16px rgba(112, 26, 117, 0.15);
             border: 2px solid #d8b4fe;
         }
-        h2 { margin-top: 0; color: #581c87; font-size: 1.15rem; display: flex; align-items: center; gap: 6px; }
+        h2 { margin-top: 0; color: #581c87; font-size: 1.1rem; display: flex; justify-content: space-between; align-items: center; }
         
         .total-display {
             text-align: center;
@@ -32,118 +31,182 @@
             color: white;
             border-radius: 14px;
             box-shadow: 0 4px 10px rgba(126, 34, 206, 0.3);
+            margin-bottom: 12px;
         }
-        .period-title { font-size: 0.9rem; opacity: 0.9; margin-bottom: 4px; }
+        .period-title { font-size: 0.85rem; opacity: 0.95; margin-bottom: 4px; }
         .main-points { font-size: 2.2rem; font-weight: bold; }
-        .sub-points { font-size: 0.85rem; opacity: 0.85; margin-top: 6px; }
+        .sub-points { font-size: 0.8rem; opacity: 0.85; margin-top: 4px; }
+
+        .setting-box {
+            background: #faf5ff;
+            border: 1px solid #e9d5ff;
+            padding: 10px 12px;
+            border-radius: 12px;
+            font-size: 0.85rem;
+            margin-bottom: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        .setting-box input {
+            border: 1px solid #c084fc;
+            border-radius: 6px;
+            padding: 4px;
+            outline: none;
+            font-size: 0.85rem;
+        }
+
+        .daily-grid {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 4px;
+            background: #faf5ff;
+            padding: 8px;
+            border-radius: 12px;
+            border: 1px solid #e9d5ff;
+            margin-bottom: 10px;
+        }
+        .daily-col {
+            text-align: center;
+            padding: 6px 2px;
+            border-radius: 8px;
+            cursor: pointer;
+            background: white;
+            border: 1px solid #f3e8ff;
+        }
+        .daily-col.today {
+            background: #c084fc;
+            color: white;
+            font-weight: bold;
+            border-color: #a855f7;
+        }
+        .daily-col.selected {
+            outline: 2px solid #7e22ce;
+            background: #e9d5ff;
+        }
+        .daily-date { font-size: 0.7rem; margin-bottom: 2px; }
+        .daily-val { font-size: 0.72rem; font-weight: bold; word-break: break-all; }
+
+        .active-target-hint {
+            font-size: 0.85rem;
+            text-align: center;
+            color: #6b21a8;
+            font-weight: bold;
+            margin-bottom: 12px;
+            background: #f3e8ff;
+            padding: 6px;
+            border-radius: 8px;
+        }
 
         .btn-grid {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
-            gap: 10px;
-            margin-bottom: 12px;
+            gap: 8px;
+            margin-bottom: 10px;
         }
         .btn-pt {
             background: #9333ea;
             color: white;
             border: none;
-            padding: 14px 8px;
-            border-radius: 12px;
-            font-size: 1rem;
+            padding: 12px 6px;
+            border-radius: 10px;
+            font-size: 0.95rem;
             font-weight: bold;
             cursor: pointer;
-            box-shadow: 0 3px 6px rgba(0,0,0,0.12);
         }
         .btn-pt:active { background: #6b21a8; transform: scale(0.96); }
         .btn-max { grid-column: span 2; background: #7e22ce; }
 
         .custom-input-group {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
         .custom-input-group input {
             flex: 1;
-            padding: 12px;
+            padding: 10px;
             border: 2px solid #c084fc;
-            border-radius: 10px;
-            font-size: 1rem;
+            border-radius: 8px;
+            font-size: 0.95rem;
             outline: none;
         }
         .custom-input-group button {
             background: #a855f7;
             color: white;
             border: none;
-            padding: 0 18px;
-            border-radius: 10px;
+            padding: 0 16px;
+            border-radius: 8px;
             font-weight: bold;
-            font-size: 0.95rem;
             cursor: pointer;
         }
 
-        .history-list {
-            list-style: none;
-            padding: 0;
-            margin: 10px 0 0 0;
-        }
+        .history-list { list-style: none; padding: 0; margin: 8px 0 0 0; }
         .history-item {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 10px 14px;
+            padding: 8px 12px;
             background: #faf5ff;
             border: 1px solid #e9d5ff;
-            border-radius: 10px;
-            margin-bottom: 8px;
-            font-size: 0.92rem;
-            cursor: pointer;
-            transition: background 0.2s;
+            border-radius: 8px;
+            margin-bottom: 6px;
+            font-size: 0.85rem;
         }
-        .history-item:active { background: #f3e8ff; }
-        .delete-hint { color: #ef4444; font-size: 0.75rem; font-weight: bold; }
-
         .toggle-btn {
             width: 100%;
             background: #6b21a8;
             color: white;
             border: none;
-            padding: 14px;
-            border-radius: 12px;
-            font-size: 1rem;
+            padding: 12px;
+            border-radius: 10px;
+            font-size: 0.95rem;
             font-weight: bold;
             cursor: pointer;
         }
         .period-item {
             display: flex;
             justify-content: space-between;
-            padding: 12px 8px;
+            padding: 10px 6px;
             border-bottom: 1px solid #f3e8ff;
+            font-size: 0.9rem;
             font-weight: bold;
         }
-        .undo-main-btn {
-            width: 100%;
-            background: #ef4444;
+        .btn-sm {
+            background: #a855f7;
             color: white;
             border: none;
-            padding: 10px;
-            border-radius: 8px;
-            font-weight: bold;
-            font-size: 0.85rem;
+            padding: 4px 8px;
+            border-radius: 6px;
+            font-size: 0.75rem;
             cursor: pointer;
-            margin-bottom: 8px;
         }
     </style>
 </head>
 <body>
 
+    <!-- 1. 加算合計 -->
     <div class="card">
         <h2>🍇 加算合計</h2>
         <div class="total-display">
-            <div class="period-title" id="period-label">今週の集計</div>
-            <div class="main-points"><span id="week-pt">0</span> <span style="font-size: 1.2rem;">pt</span></div>
+            <div class="period-title" id="period-label">設定週の合計</div>
+            <div class="main-points"><span id="week-pt">0</span> <span style="font-size: 1.1rem;">pt</span></div>
             <div class="sub-points">累計全期間: <span id="total-pt">0</span> pt</div>
         </div>
     </div>
 
+    <!-- 2. 週と日別の設定（ポイント加算の上） -->
+    <div class="card">
+        <h2>📅 週の設定と日別集計</h2>
+        <div class="setting-box">
+            <span>開始日:</span>
+            <input type="date" id="week-start-input">
+            <button class="btn-sm" onclick="saveWeekStart()">週を設定</button>
+        </div>
+
+        <div class="daily-grid" id="daily-grid"></div>
+        <div class="active-target-hint" id="active-target-hint">加算対象日: 本日</div>
+    </div>
+
+    <!-- 3. ポイント加算 -->
     <div class="card">
         <h2>➕ ポイント加算</h2>
         <div class="btn-grid">
@@ -162,48 +225,107 @@
         </div>
     </div>
 
+    <!-- 4. ミス消去 / 履歴 -->
     <div class="card">
         <h2>↩️ ミス消去（タップで差し引き）</h2>
-        <button class="undo-main-btn" onclick="undoLast()">一番最後の加算を取り消す</button>
+        <button style="width:100%; background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer;" onclick="undoLast()">直前の加算を取り消す</button>
         <ul class="history-list" id="recent-logs"></ul>
     </div>
 
+    <!-- 5. 過去の記録 -->
     <div class="card">
-        <button class="toggle-btn" onclick="togglePastRecords()">過去の記録 🍇</button>
-        <div id="past-records-container" style="display: none; margin-top: 15px;">
+        <button class="toggle-btn" onclick="togglePastRecords()">過去の全週記録 🍇</button>
+        <div id="past-records-container" style="display: none; margin-top: 12px;">
             <div id="past-periods-list"></div>
         </div>
     </div>
 
     <script>
-        async function loadSummary() {
-            const res = await fetch('/get_summary');
-            const data = await res.json();
-            
-            document.getElementById('period-label').innerText = `${data.current_period_label} の加算分`;
-            document.getElementById('week-pt').innerText = data.current_week_total.toLocaleString();
-            document.getElementById('total-pt').innerText = data.total_all.toLocaleString();
+        let selectedDate = null;
 
-            const recentList = document.getElementById('recent-logs');
-            recentList.innerHTML = '';
-            data.recent_logs.forEach(log => {
-                const li = document.createElement('li');
-                li.className = 'history-item';
-                const timeStr = log.time.split(' ')[1] || log.time;
-                li.innerHTML = `
-                    <span><strong>+${log.amount.toLocaleString()} pt</strong> <small style="color:#6b21a8;">(${timeStr})</small></span>
-                    <span class="delete-hint">タップで消去 ✕</span>
-                `;
-                li.onclick = () => deleteLog(log.id, log.amount);
-                recentList.appendChild(li);
-            });
+        async function loadSummary() {
+            try {
+                const res = await fetch('/get_summary');
+                const data = await res.json();
+                
+                document.getElementById('week-start-input').value = data.week_start_date;
+                document.getElementById('period-label').innerText = `${data.period_label} の加算分`;
+                document.getElementById('week-pt').innerText = (data.week_total || 0).toLocaleString();
+                document.getElementById('total-pt').innerText = (data.total_all || 0).toLocaleString();
+
+                if (!selectedDate) {
+                    selectedDate = data.today_str;
+                }
+
+                const dailyGrid = document.getElementById('daily-grid');
+                dailyGrid.innerHTML = '';
+                if (data.daily_breakdown) {
+                    data.daily_breakdown.forEach(item => {
+                        const col = document.createElement('div');
+                        const isToday = item.is_today;
+                        const isSelected = item.full_date === selectedDate;
+                        
+                        col.className = `daily-col ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
+                        col.onclick = () => selectDate(item.full_date);
+
+                        let displayVal = item.total >= 10000 
+                            ? (item.total / 10000).toFixed(1) + '万' 
+                            : (item.total || 0).toLocaleString();
+
+                        col.innerHTML = `
+                            <div class="daily-date">${item.date_label}</div>
+                            <div class="daily-val">${displayVal}</div>
+                        `;
+                        dailyGrid.appendChild(col);
+                    });
+                }
+
+                document.getElementById('active-target-hint').innerText = `現在の入力対象日: ${selectedDate}`;
+
+                const recentList = document.getElementById('recent-logs');
+                recentList.innerHTML = '';
+                if (!data.recent_logs || data.recent_logs.length === 0) {
+                    recentList.innerHTML = '<li style="text-align:center; padding:8px; color:#888; font-size:0.8rem;">履歴なし</li>';
+                } else {
+                    data.recent_logs.forEach(log => {
+                        const li = document.createElement('li');
+                        li.className = 'history-item';
+                        const timePart = log.time.includes(' ') ? log.time.split(' ')[1] : log.time;
+                        li.innerHTML = `
+                            <span><strong>+${log.amount.toLocaleString()} pt</strong> <small style="color:#6b21a8;">(${timePart})</small></span>
+                            <span style="color:#ef4444; cursor:pointer; font-size:0.75rem; font-weight:bold;" onclick="deleteLog(${log.id})">削除 ✕</span>
+                        `;
+                        recentList.appendChild(li);
+                    });
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        }
+
+        function selectDate(fullDate) {
+            selectedDate = fullDate;
+            loadSummary();
+        }
+
+        async function saveWeekStart() {
+            const dateVal = document.getElementById('week-start-input').value;
+            if (dateVal) {
+                await fetch('/settings/week_start', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ start_date: dateVal })
+                });
+                selectedDate = null;
+                loadSummary();
+            }
         }
 
         async function addPoint(amt) {
             await fetch('/add_point', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount: amt })
+                body: JSON.stringify({ amount: amt, target_date: selectedDate })
             });
             loadSummary();
         }
@@ -219,15 +341,11 @@
 
         async function undoLast() {
             const res = await fetch('/undo_last', { method: 'POST' });
-            if (res.ok) {
-                loadSummary();
-            } else {
-                alert('取り消せる履歴がありません');
-            }
+            if (res.ok) loadSummary();
         }
 
-        async function deleteLog(id, amt) {
-            if (confirm(`+${amt.toLocaleString()} pt の加算を取り消しますか？`)) {
+        async function deleteLog(id) {
+            if (confirm(`この加算を削除しますか？`)) {
                 await fetch('/delete_log', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -237,29 +355,25 @@
             }
         }
 
-        let isPastLoaded = false;
         async function togglePastRecords() {
             const container = document.getElementById('past-records-container');
             if (container.style.display === 'none') {
                 container.style.display = 'block';
-                if (!isPastLoaded) {
-                    const res = await fetch('/get_past_periods');
-                    const data = await res.json();
-                    const listDiv = document.getElementById('past-periods-list');
-                    listDiv.innerHTML = '';
-                    if(data.periods.length === 0) {
-                        listDiv.innerHTML = '<div class="period-item">データがありません</div>';
-                    } else {
-                        data.periods.forEach(p => {
-                            listDiv.innerHTML += `
-                                <div class="period-item">
-                                    <span>${p.label}</span>
-                                    <span style="color:#7e22ce;">${p.total.toLocaleString()} pt</span>
-                                </div>
-                            `;
-                        });
-                    }
-                    isPastLoaded = true;
+                const res = await fetch('/get_past_periods');
+                const data = await res.json();
+                const listDiv = document.getElementById('past-periods-list');
+                listDiv.innerHTML = '';
+                if(!data.archives || data.archives.length === 0) {
+                    listDiv.innerHTML = '<div class="period-item">過去のアーカイブはありません</div>';
+                } else {
+                    data.archives.forEach(p => {
+                        listDiv.innerHTML += `
+                            <div class="period-item">
+                                <span>${p.label}</span>
+                                <span style="color:#7e22ce;">${p.total.toLocaleString()} pt</span>
+                            </div>
+                        `;
+                    });
                 }
             } else {
                 container.style.display = 'none';
