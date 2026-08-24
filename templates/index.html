@@ -120,6 +120,7 @@
         .custom-input-group {
             display: flex;
             gap: 6px;
+            margin-bottom: 8px;
         }
         .custom-input-group input {
             flex: 1;
@@ -130,7 +131,6 @@
             outline: none;
         }
         .custom-input-group button {
-            background: #a855f7;
             color: white;
             border: none;
             padding: 0 16px;
@@ -138,6 +138,8 @@
             font-weight: bold;
             cursor: pointer;
         }
+        .btn-add { background: #a855f7; }
+        .btn-sub { background: #ef4444; }
 
         .history-list { list-style: none; padding: 0; margin: 8px 0 0 0; }
         .history-item {
@@ -162,13 +164,28 @@
             font-weight: bold;
             cursor: pointer;
         }
-        .period-item {
+        .period-card {
+            background: #faf5ff;
+            border: 1px solid #e9d5ff;
+            border-radius: 10px;
+            padding: 10px;
+            margin-bottom: 8px;
+        }
+        .period-header {
             display: flex;
             justify-content: space-between;
-            padding: 10px 6px;
-            border-bottom: 1px solid #f3e8ff;
-            font-size: 0.9rem;
             font-weight: bold;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+        .period-details {
+            display: grid;
+            grid-template-columns: repeat(7, 1fr);
+            gap: 2px;
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #d8b4fe;
+            text-align: center;
         }
         .btn-sm {
             background: #a855f7;
@@ -193,7 +210,7 @@
         </div>
     </div>
 
-    <!-- 2. 週と日別の設定（ポイント加算の上） -->
+    <!-- 2. 週と日別の設定 -->
     <div class="card">
         <h2>📅 週の設定と日別集計</h2>
         <div class="setting-box">
@@ -203,7 +220,7 @@
         </div>
 
         <div class="daily-grid" id="daily-grid"></div>
-        <div class="active-target-hint" id="active-target-hint">加算対象日: 本日</div>
+        <div class="active-target-hint" id="active-target-hint">現在の入力対象日: -</div>
     </div>
 
     <!-- 3. ポイント加算 -->
@@ -219,16 +236,18 @@
             <button class="btn-pt btn-max" onclick="addPoint(30000)">+30,000 pt</button>
         </div>
 
+        <!-- 自由入力（加算 & 減算） -->
         <div class="custom-input-group">
             <input type="number" id="custom-pt" placeholder="自由入力 (例: 250)">
-            <button onclick="addCustomPoint()">加算</button>
+            <button class="btn-add" onclick="addCustomPoint(1)">加算 (+)</button>
+            <button class="btn-sub" onclick="addCustomPoint(-1)">引き算 (-)</button>
         </div>
     </div>
 
     <!-- 4. ミス消去 / 履歴 -->
     <div class="card">
-        <h2>↩️ ミス消去（タップで差し引き）</h2>
-        <button style="width:100%; background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer;" onclick="undoLast()">直前の加算を取り消す</button>
+        <h2>↩️ ミス消去 / 直近の履歴</h2>
+        <button style="width:100%; background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer;" onclick="undoLast()">直前の操作を1件取り消す</button>
         <ul class="history-list" id="recent-logs"></ul>
     </div>
 
@@ -242,6 +261,7 @@
 
     <script>
         let selectedDate = null;
+        let isUserManualSelect = false;
 
         async function loadSummary() {
             try {
@@ -253,8 +273,13 @@
                 document.getElementById('week-pt').innerText = (data.week_total || 0).toLocaleString();
                 document.getElementById('total-pt').innerText = (data.total_all || 0).toLocaleString();
 
-                if (!selectedDate) {
-                    selectedDate = data.today_str;
+                if (!isUserManualSelect) {
+                    const matchToday = data.daily_breakdown.find(d => d.is_today);
+                    if (matchToday) {
+                        selectedDate = matchToday.full_date;
+                    } else {
+                        selectedDate = data.daily_breakdown[0].full_date;
+                    }
                 }
 
                 const dailyGrid = document.getElementById('daily-grid');
@@ -268,7 +293,7 @@
                         col.className = `daily-col ${isToday ? 'today' : ''} ${isSelected ? 'selected' : ''}`;
                         col.onclick = () => selectDate(item.full_date);
 
-                        let displayVal = item.total >= 10000 
+                        let displayVal = Math.abs(item.total) >= 10000 
                             ? (item.total / 10000).toFixed(1) + '万' 
                             : (item.total || 0).toLocaleString();
 
@@ -291,8 +316,10 @@
                         const li = document.createElement('li');
                         li.className = 'history-item';
                         const timePart = log.time.includes(' ') ? log.time.split(' ')[1] : log.time;
+                        const sign = log.amount > 0 ? '+' : '';
+                        const color = log.amount < 0 ? '#ef4444' : '#4c1d95';
                         li.innerHTML = `
-                            <span><strong>+${log.amount.toLocaleString()} pt</strong> <small style="color:#6b21a8;">(${timePart})</small></span>
+                            <span><strong style="color:${color};">${sign}${log.amount.toLocaleString()} pt</strong> <small style="color:#6b21a8;">(${timePart})</small></span>
                             <span style="color:#ef4444; cursor:pointer; font-size:0.75rem; font-weight:bold;" onclick="deleteLog(${log.id})">削除 ✕</span>
                         `;
                         recentList.appendChild(li);
@@ -305,6 +332,7 @@
 
         function selectDate(fullDate) {
             selectedDate = fullDate;
+            isUserManualSelect = true;
             loadSummary();
         }
 
@@ -316,7 +344,7 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ start_date: dateVal })
                 });
-                selectedDate = null;
+                isUserManualSelect = false;
                 loadSummary();
             }
         }
@@ -330,11 +358,11 @@
             loadSummary();
         }
 
-        async function addCustomPoint() {
+        async function addCustomPoint(sign) {
             const input = document.getElementById('custom-pt');
             const val = parseInt(input.value);
             if (val && val > 0) {
-                await addPoint(val);
+                await addPoint(val * sign);
                 input.value = '';
             }
         }
@@ -345,7 +373,7 @@
         }
 
         async function deleteLog(id) {
-            if (confirm(`この加算を削除しますか？`)) {
+            if (confirm(`この記録を削除しますか？`)) {
                 await fetch('/delete_log', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -364,19 +392,38 @@
                 const listDiv = document.getElementById('past-periods-list');
                 listDiv.innerHTML = '';
                 if(!data.archives || data.archives.length === 0) {
-                    listDiv.innerHTML = '<div class="period-item">過去のアーカイブはありません</div>';
+                    listDiv.innerHTML = '<div class="period-card" style="text-align:center; color:#666;">過去のアーカイブはありません</div>';
                 } else {
-                    data.archives.forEach(p => {
+                    data.archives.forEach((p, idx) => {
+                        let daysHtml = p.days.map(d => `
+                            <div>
+                                <div style="font-size:0.65rem; color:#6b21a8;">${d.date_label}</div>
+                                <div style="font-size:0.7rem; font-weight:bold;">${d.total.toLocaleString()}</div>
+                            </div>
+                        `).join('');
+
                         listDiv.innerHTML += `
-                            <div class="period-item">
-                                <span>${p.label}</span>
-                                <span style="color:#7e22ce;">${p.total.toLocaleString()} pt</span>
+                            <div class="period-card">
+                                <div class="period-header" onclick="toggleDetails(${idx})">
+                                    <span>${p.label}</span>
+                                    <span style="color:#7e22ce;">${p.total.toLocaleString()} pt ▼</span>
+                                </div>
+                                <div class="period-details" id="archive-detail-${idx}" style="display:none;">
+                                    ${daysHtml}
+                                </div>
                             </div>
                         `;
                     });
                 }
             } else {
                 container.style.display = 'none';
+            }
+        }
+
+        function toggleDetails(idx) {
+            const target = document.getElementById(`archive-detail-${idx}`);
+            if (target) {
+                target.style.display = target.style.display === 'none' ? 'grid' : 'none';
             }
         }
 
