@@ -1,6 +1,6 @@
 from flask import Flask, render_template, request, jsonify
 import sqlite3
-from datetime import datetime
+from datetime import datetime, timedelta
 
 app = Flask(__name__)
 
@@ -10,13 +10,18 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS logs
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   amount INTEGER,
-                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                  year_week TEXT,
-                  year_month TEXT)''')
+                  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     conn.commit()
     conn.close()
 
 init_db()
+
+def get_week_bounds(dt):
+    # 月曜日始まりの7日間を自動計算
+    start = dt - timedelta(days=dt.weekday())
+    start = start.replace(hour=0, minute=0, second=0, microsecond=0)
+    end = start + timedelta(days=7)
+    return start, end
 
 @app.route('/')
 def index():
@@ -25,71 +30,112 @@ def index():
 @app.route('/add_point', methods=['POST'])
 def add_point():
     data = request.json
-    multiplier = int(data.get('multiplier', 1))
-    amount = multiplier * 100
-    
-    now = datetime.now()
-    year_week = now.strftime("%Y-W%U")
-    year_month = now.strftime("%Y-%m")
-    
+    amount = int(data.get('amount', 0))
+    if amount == 0:
+        return jsonify({"status": "error", "message": "Invalid amount"}), 400
+        
     conn = sqlite3.connect('points.db')
     c = conn.cursor()
-    c.execute('INSERT INTO logs (amount, year_week, year_month) VALUES (?, ?, ?)',
-              (amount, year_week, year_month))
+    c.execute('INSERT INTO logs (amount) VALUES (?)', (amount,))
     conn.commit()
     conn.close()
-    
     return jsonify({"status": "success", "added": amount})
+
+@app.route('/undo_last', methods=['POST'])
+def undo_last():
+    conn = sqlite3.connect('points.db')
+    c = conn.cursor()
+    c.execute('SELECT id, amount FROM logs ORDER BY id DESC LIMIT 1')
+    last_row = c.fetchone()
+    if last_row:
+        c.execute('DELETE FROM logs WHERE id = ?', (last_row[0],))
+        conn.commit()
+        conn.close()
+        return jsonify({"status": "success", "removed": last_row[1]})
+    conn.close()
+    return jsonify({"status": "error", "message": "履歴がありません"}), 400
+
+@app.route('/delete_log', methods=['POST'])
+def delete_log():
+    data = request.json
+    log_id = data.get('id')
+    if not log_id:
+        return jsonify({"status": "error"}), 400
+    conn = sqlite3.connect('points.db')
+    c = conn.cursor()
+    c.execute('DELETE FROM logs WHERE id = ?', (log_id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"status": "success"})
 
 @app.route('/get_summary', methods=['GET'])
 def get_summary():
     now = datetime.now()
-    current_week = now.strftime("%Y-W%U")
-    current_month = now.strftime("%Y-%m")
+    curr_start, curr_end = get_week_bounds(now)
     
     conn = sqlite3.connect('points.db')
     c = conn.cursor()
     
-    c.execute('SELECT SUM(amount) FROM logs WHERE year_week = ?', (current_week,))
-    week_total = c.fetchone()[0] or 0
+    # 自動更新される今週分の合計
+    c.execute('SELECT SUM(amount) FROM logs WHERE created_at >= ? AND created_at < ?',
+              (curr_start.strftime("%Y-%m-%d %H:%M:%S"), curr_end.strftime("%Y-%m-%d %H:%M:%S")))
+    current_week_total = c.fetchone()[0] or 0
     
-    c.execute('SELECT SUM(amount) FROM logs WHERE year_month = ?', (current_month,))
-    month_total = c.fetchone()[0] or 0
+    # 全期間合計
+    c.execute('SELECT SUM(amount) FROM logs')
+    total_all = c.fetchone()[0] or 0
     
-    c.execute('SELECT DISTINCT year_week FROM logs ORDER BY year_week DESC')
-    weeks = [row[0] for row in c.fetchall()]
-    
-    c.execute('SELECT DISTINCT year_month FROM logs ORDER BY year_month DESC')
-    months = [row[0] for row in c.fetchall()]
+    # 直近の加算履歴（最新5件）
+    c.execute('SELECT id, amount, created_at FROM logs ORDER BY id DESC LIMIT 5')
+    recent_logs = [{"id": r[0], "amount": r[1], "time": r[2]} for r in c.fetchall()]
     
     conn.close()
+    
+    label = f"{curr_start.month}/{curr_start.day} 〜 {curr_end.month}/{curr_end.day}"
     
     return jsonify({
-        "week_total": week_total,
-        "month_total": month_total,
-        "weeks": weeks,
-        "months": months,
-        "current_week": current_week,
-        "current_month": current_month
+        "current_period_label": label,
+        "current_week_total": current_week_total,
+        "total_all": total_all,
+        "recent_logs": recent_logs
     })
 
-@app.route('/get_history', methods=['GET'])
-def get_history():
-    period_type = request.args.get('type')
-    val = request.args.get('value')
-    
+@app.route('/get_past_periods', methods=['GET'])
+def get_past_periods():
     conn = sqlite3.connect('points.db')
     c = conn.cursor()
-    
-    if period_type == 'week':
-        c.execute('SELECT SUM(amount) FROM logs WHERE year_week = ?', (val,))
-    else:
-        c.execute('SELECT SUM(amount) FROM logs WHERE year_month = ?', (val,))
-        
-    total = c.fetchone()[0] or 0
+    c.execute('SELECT id, amount, created_at FROM logs ORDER BY created_at ASC')
+    rows = c.fetchall()
     conn.close()
     
-    return jsonify({"total": total})
+    if not rows:
+        return jsonify({"periods": []})
+        
+    now = datetime.now()
+    curr_start, _ = get_week_bounds(now)
+    
+    # 最初のデータ取得日から現在の週までの7日刻み枠を作成
+    first_date_str = rows[0][2].split(' ')[0] if ' ' in rows[0][2] else rows[0][2].split('T')[0]
+    first_dt = datetime.strptime(first_date_str, "%Y-%m-%d")
+    first_week_start, _ = get_week_bounds(first_dt)
+    
+    periods = []
+    temp_start = first_week_start
+    while temp_start <= curr_start:
+        temp_end = temp_start + timedelta(days=7)
+        
+        # 期間内のポイント集計
+        p_total = 0
+        for r_id, amount, created_at in rows:
+            c_dt = datetime.strptime(created_at.split('.')[0], "%Y-%m-%d %H:%M:%S") if '.' in created_at else datetime.strptime(created_at, "%Y-%m-%d %H:%M:%S")
+            if temp_start <= c_dt < temp_end:
+                p_total += amount
+                
+        label = f"{temp_start.month}/{temp_start.day} 〜 {temp_end.month}/{temp_end.day}"
+        periods.append({"label": label, "total": p_total})
+        temp_start = temp_end
+        
+    return jsonify({"periods": list(reversed(periods))})
 
 if __name__ == '__main__':
     app.run(debug=True)
