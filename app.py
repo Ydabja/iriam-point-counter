@@ -19,6 +19,13 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS settings
                  (key TEXT PRIMARY KEY, value TEXT)''')
     
+    # 手動確定された過去アーカイブ用テーブル
+    c.execute('''CREATE TABLE IF NOT EXISTS archives
+                 (id INTEGER PRIMARY KEY AUTOINCREMENT,
+                  period_label TEXT,
+                  total_points INTEGER,
+                  archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+    
     c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
     if not c.fetchone():
         today_str = datetime.now().strftime('%Y-%m-%d')
@@ -66,8 +73,28 @@ def target_points_setting():
 def archive_current_week():
     conn = get_db()
     c = conn.cursor()
-    today_str = datetime.now().strftime('%Y-%m-%d')
+    
+    # 現在の開始日を取得
+    c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
+    row = c.fetchone()
+    base_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
+    
+    today_dt = datetime.now()
+    today_str = today_dt.strftime('%Y-%m-%d')
+    
+    # 現在の期間の集計ポイントを取得
+    c.execute('''SELECT SUM(amount) FROM logs WHERE created_at >= ?''', (base_start_str + " 00:00:00",))
+    sum_row = c.fetchone()
+    current_total = sum_row[0] if sum_row and sum_row[0] is not None else 0
+    
+    period_label = f"{base_start_str.replace('-', '/')} 〜 {today_dt.strftime('%Y/%m/%d')}"
+    
+    # アーカイブテーブルに保存
+    c.execute('INSERT INTO archives (period_label, total_points) VALUES (?, ?)', (period_label, current_total))
+    
+    # 開始日を今日に更新（新しい週のリスタート）
     c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (today_str,))
+    
     conn.commit()
     conn.close()
     return jsonify({'status': 'success'})
@@ -202,57 +229,12 @@ def get_past_periods():
     conn = get_db()
     c = conn.cursor()
     
-    c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
-    row = c.fetchone()
-    base_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
-    try:
-        base_start = datetime.strptime(base_start_str, '%Y-%m-%d')
-    except:
-        base_start = datetime.now()
-
-    today_dt = datetime.now().date()
-    diff_days = (today_dt - base_start.date()).days
-    current_week_index = diff_days // 7 if diff_days >= 0 else 0
-
-    c.execute('SELECT amount, created_at FROM logs ORDER BY created_at ASC')
-    rows = c.fetchall()
+    # 手動保存されたアーカイブを取得
+    c.execute('SELECT period_label, total_points FROM archives ORDER BY id DESC')
+    archives_rows = c.fetchall()
     conn.close()
 
-    archives_dict = {}
-
-    for r in rows:
-        try:
-            dt = datetime.strptime(str(r['created_at']).split('.')[0], '%Y-%m-%d %H:%M:%S')
-        except:
-            dt = datetime.now()
-
-        d_diff = (dt.date() - base_start.date()).days
-        w_index = d_diff // 7
-
-        if w_index < current_week_index or dt.date() < base_start.date():
-            w_start = base_start + timedelta(days=w_index * 7)
-            w_end = w_start + timedelta(days=6)
-            label = f"{w_start.strftime('%Y/%m/%d')}〜{w_end.strftime('%m/%d')}"
-
-            if label not in archives_dict:
-                archives_dict[label] = {
-                    'label': label,
-                    'total': 0,
-                    'days': []
-                }
-                for i in range(7):
-                    day_date = w_start + timedelta(days=i)
-                    archives_dict[label]['days'].append({
-                        'date_label': day_date.strftime('%m/%d'),
-                        'total': 0
-                    })
-
-            day_offset = (dt.date() - w_start.date()).days
-            if 0 <= day_offset < 7:
-                archives_dict[label]['days'][day_offset]['total'] += r['amount']
-                archives_dict[label]['total'] += r['amount']
-
-    result = list(reversed(list(archives_dict.values())))
+    result = [{'label': r['period_label'], 'total': r['total_points']} for r in archives_rows]
     return jsonify({'archives': result})
 
 if __name__ == '__main__':
