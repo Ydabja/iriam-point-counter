@@ -19,7 +19,7 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS settings
                  (key TEXT PRIMARY KEY, value TEXT)''')
     
-    # 手動確定された過去アーカイブ用テーブル
+    # アーカイブ保存用テーブル
     c.execute('''CREATE TABLE IF NOT EXISTS archives
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   period_label TEXT,
@@ -74,7 +74,6 @@ def archive_current_week():
     conn = get_db()
     c = conn.cursor()
     
-    # 現在の開始日を取得
     c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
     row = c.fetchone()
     base_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
@@ -82,17 +81,13 @@ def archive_current_week():
     today_dt = datetime.now()
     today_str = today_dt.strftime('%Y-%m-%d')
     
-    # 現在の期間の集計ポイントを取得
     c.execute('''SELECT SUM(amount) FROM logs WHERE created_at >= ?''', (base_start_str + " 00:00:00",))
     sum_row = c.fetchone()
     current_total = sum_row[0] if sum_row and sum_row[0] is not None else 0
     
     period_label = f"{base_start_str.replace('-', '/')} 〜 {today_dt.strftime('%Y/%m/%d')}"
     
-    # アーカイブテーブルに保存
     c.execute('INSERT INTO archives (period_label, total_points) VALUES (?, ?)', (period_label, current_total))
-    
-    # 開始日を今日に更新（新しい週のリスタート）
     c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (today_str,))
     
     conn.commit()
@@ -228,14 +223,25 @@ def delete_log():
 def get_past_periods():
     conn = get_db()
     c = conn.cursor()
-    
-    # 手動保存されたアーカイブを取得
-    c.execute('SELECT period_label, total_points FROM archives ORDER BY id DESC')
+    c.execute('SELECT id, period_label, total_points FROM archives ORDER BY id DESC')
     archives_rows = c.fetchall()
     conn.close()
 
-    result = [{'label': r['period_label'], 'total': r['total_points']} for r in archives_rows]
+    result = [{'id': r['id'], 'label': r['period_label'], 'total': r['total_points']} for r in archives_rows]
     return jsonify({'archives': result})
+
+@app.route('/delete_archive', methods=['POST'])
+def delete_archive():
+    data = request.get_json()
+    archive_id = data.get('id')
+    if archive_id:
+        conn = get_db()
+        c = conn.cursor()
+        c.execute('DELETE FROM archives WHERE id = ?', (archive_id,))
+        conn.commit()
+        conn.close()
+        return jsonify({'status': 'success'})
+    return jsonify({'status': 'error'}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000)
