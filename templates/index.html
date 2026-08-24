@@ -204,10 +204,29 @@
             border-radius: 10px;
             padding: 10px 12px;
             margin-bottom: 8px;
+            font-size: 0.85rem;
+        }
+        .period-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            font-size: 0.85rem;
+            cursor: pointer;
+        }
+        .archive-details {
+            margin-top: 8px;
+            padding-top: 8px;
+            border-top: 1px dashed #d8b4fe;
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 4px;
+            text-align: center;
+        }
+        .archive-day-box {
+            background: white;
+            padding: 4px 2px;
+            border-radius: 6px;
+            font-size: 0.75rem;
+            border: 1px solid #f3e8ff;
         }
         .btn-sm {
             background: #a855f7;
@@ -218,9 +237,27 @@
             font-size: 0.75rem;
             cursor: pointer;
         }
+
+        /* ロック切り替えバー */
+        .lock-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(255, 255, 255, 0.9);
+            padding: 8px 14px;
+            border-radius: 12px;
+            margin-bottom: 12px;
+            border: 2px solid #c084fc;
+        }
     </style>
 </head>
 <body>
+
+    <!-- モード切り替えバー -->
+    <div class="lock-bar">
+        <span id="lock-status" style="font-size:0.85rem; font-weight:bold;">👀 閲覧モード（操作不可）</span>
+        <button id="lock-toggle-btn" class="btn-sm" onclick="toggleLock()" style="background:#7e22ce; padding:6px 12px; font-weight:bold;">🔓 編集モードにする</button>
+    </div>
 
     <!-- 1. 加算合計 -->
     <div class="card">
@@ -252,26 +289,26 @@
         <div class="active-target-hint" id="active-target-hint">現在の入力対象日: -</div>
 
         <div class="btn-grid">
-            <button class="btn-pt" onclick="addPoint(1)">+1 pt</button>
-            <button class="btn-pt" onclick="addPoint(100)">+100 pt</button>
-            <button class="btn-pt" onclick="addPoint(500)">+500 pt</button>
-            <button class="btn-pt" onclick="addPoint(1000)">+1,000 pt</button>
-            <button class="btn-pt" onclick="addPoint(5000)">+5,000 pt</button>
-            <button class="btn-pt" onclick="addPoint(10000)">+10,000 pt</button>
-            <button class="btn-pt btn-max" onclick="addPoint(30000)">+30,000 pt</button>
+            <button class="btn-pt action-btn" onclick="addPoint(1)">+1 pt</button>
+            <button class="btn-pt action-btn" onclick="addPoint(100)">+100 pt</button>
+            <button class="btn-pt action-btn" onclick="addPoint(500)">+500 pt</button>
+            <button class="btn-pt action-btn" onclick="addPoint(1000)">+1,000 pt</button>
+            <button class="btn-pt action-btn" onclick="addPoint(5000)">+5,000 pt</button>
+            <button class="btn-pt action-btn" onclick="addPoint(10000)">+10,000 pt</button>
+            <button class="btn-pt btn-max action-btn" onclick="addPoint(30000)">+30,000 pt</button>
         </div>
 
         <div class="custom-input-group">
-            <input type="number" id="custom-pt" placeholder="自由入力 (例: 250)">
-            <button class="btn-add" onclick="addCustomPoint(1)">加算 (+)</button>
-            <button class="btn-sub" onclick="addCustomPoint(-1)">引き算 (-)</button>
+            <input type="number" id="custom-pt" class="action-btn" placeholder="自由入力 (例: 250)">
+            <button class="btn-add action-btn" onclick="addCustomPoint(1)">加算 (+)</button>
+            <button class="btn-sub action-btn" onclick="addCustomPoint(-1)">引き算 (-)</button>
         </div>
     </div>
 
     <!-- 3. ミス消去 / 履歴 -->
     <div class="card">
         <h2>↩️ ミス消去 / 直近の履歴</h2>
-        <button style="width:100%; background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer;" onclick="undoLast()">直前の操作を1件取り消す</button>
+        <button class="action-btn" style="width:100%; background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer;" onclick="undoLast()">直前の操作を1件取り消す</button>
         <ul class="history-list" id="recent-logs"></ul>
     </div>
 
@@ -280,20 +317,20 @@
         <h2>📅 週の設定 / アーカイブ操作</h2>
         <div class="setting-box">
             <span>開始日:</span>
-            <input type="date" id="week-start-input">
-            <button class="btn-sm" onclick="saveWeekStart()">週を設定</button>
+            <input type="date" id="week-start-input" class="action-btn">
+            <button class="btn-sm action-btn" onclick="saveWeekStart()">週を設定</button>
         </div>
 
         <div class="setting-box">
             <span>目標pt:</span>
-            <input type="number" id="target-input" placeholder="例: 50000">
-            <button class="btn-sm" onclick="saveTargetPoints()">目標保存</button>
+            <input type="number" id="target-input" class="action-btn" placeholder="例: 50000">
+            <button class="btn-sm action-btn" onclick="saveTargetPoints()">目標保存</button>
         </div>
 
-        <button class="btn-archive" onclick="archiveCurrentWeek()">📦 この週を確定してアーカイブへ送る</button>
+        <button class="btn-archive action-btn" onclick="archiveCurrentWeek()">📦 この週を確定してアーカイブへ送る</button>
     </div>
 
-    <!-- 5. 過去の記録（消去対応） -->
+    <!-- 5. 過去の記録 -->
     <div class="card">
         <button class="toggle-btn" onclick="togglePastRecords()">過去の全週記録 🍇</button>
         <div id="past-records-container" style="display: none; margin-top: 12px;">
@@ -302,8 +339,55 @@
     </div>
 
     <script>
+        const LIVER_PIN = "1115"; // 設定パスワード
+        let isEditable = false;    // 初期状態は閲覧専用
         let selectedDate = null;
         let isUserManualSelect = false;
+
+        function updateUIState() {
+            const actionElems = document.querySelectorAll('.action-btn');
+            const statusText = document.getElementById('lock-status');
+            const toggleBtn = document.getElementById('lock-toggle-btn');
+
+            if (isEditable) {
+                statusText.innerText = "✏️ 編集モード（操作可能）";
+                statusText.style.color = "#16a34a";
+                toggleBtn.innerText = "🔒 閲覧モードに戻す";
+                toggleBtn.style.background = "#ef4444";
+                
+                actionElems.forEach(el => {
+                    el.disabled = false;
+                    el.style.opacity = '1';
+                    el.style.cursor = 'pointer';
+                });
+            } else {
+                statusText.innerText = "👀 閲覧モード（操作不可）";
+                statusText.style.color = "#6b21a8";
+                toggleBtn.innerText = "🔓 編集モードにする";
+                toggleBtn.style.background = "#7e22ce";
+
+                actionElems.forEach(el => {
+                    el.disabled = true;
+                    el.style.opacity = '0.5';
+                    el.style.cursor = 'not-allowed';
+                });
+            }
+        }
+
+        function toggleLock() {
+            if (isEditable) {
+                isEditable = false;
+                updateUIState();
+            } else {
+                const inputPin = prompt("ライバー用パスワードを入力してください:");
+                if (inputPin === LIVER_PIN) {
+                    isEditable = true;
+                    updateUIState();
+                } else if (inputPin !== null) {
+                    alert("パスワードが違います");
+                }
+            }
+        }
 
         async function loadSummary() {
             try {
@@ -315,19 +399,27 @@
                 document.getElementById('week-pt').innerText = (data.week_total || 0).toLocaleString();
                 document.getElementById('total-pt').innerText = (data.total_all || 0).toLocaleString();
 
-                const target = data.target_points || 50000;
+                const target = data.target_points !== undefined ? data.target_points : 50000;
                 const weekTotal = data.week_total || 0;
                 document.getElementById('target-input').value = target;
                 document.getElementById('target-pt-val').innerText = target.toLocaleString();
                 
-                let pct = Math.min(100, Math.round((weekTotal / target) * 100));
+                let pct = 0;
+                if (target === 0) {
+                    pct = weekTotal > 0 ? 100 : 0;
+                } else {
+                    pct = Math.min(100, Math.round((weekTotal / target) * 100));
+                }
                 if (isNaN(pct)) pct = 0;
+                
                 document.getElementById('target-percent').innerText = `${pct}%`;
                 document.getElementById('progress-bar-fill').style.width = `${pct}%`;
 
                 const remain = target - weekTotal;
-                if (remain <= 0) {
+                if (target > 0 && remain <= 0) {
                     document.getElementById('target-remain-text').innerText = '🎉 目標達成！おめでとうございます！';
+                } else if (target === 0) {
+                    document.getElementById('target-remain-text').innerText = '🎯 目標: 0 pt 設定中';
                 } else {
                     document.getElementById('target-remain-text').innerText = `あと ${remain.toLocaleString()} pt`;
                 }
@@ -377,50 +469,59 @@
                         const timePart = log.time.includes(' ') ? log.time.split(' ')[1] : log.time;
                         const sign = log.amount > 0 ? '+' : '';
                         const color = log.amount < 0 ? '#ef4444' : '#4c1d95';
+                        
                         li.innerHTML = `
                             <span><strong style="color:${color};">${sign}${log.amount.toLocaleString()} pt</strong> <small style="color:#6b21a8;">(${timePart})</small></span>
-                            <span style="color:#ef4444; cursor:pointer; font-size:0.75rem; font-weight:bold;" onclick="deleteLog(${log.id})">削除 ✕</span>
+                            <span class="action-btn" style="color:#ef4444; cursor:pointer; font-size:0.75rem; font-weight:bold;" onclick="deleteLog(${log.id})">削除 ✕</span>
                         `;
                         recentList.appendChild(li);
                     });
                 }
+
+                updateUIState();
             } catch (err) {
                 console.error(err);
             }
         }
 
         function selectDate(fullDate) {
+            if (!isEditable) return;
             selectedDate = fullDate;
             isUserManualSelect = true;
             loadSummary();
         }
 
         async function saveWeekStart() {
+            if (!isEditable) return;
             const dateVal = document.getElementById('week-start-input').value;
             if (dateVal) {
-                await fetch('/settings/week_start', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ start_date: dateVal })
-                });
-                isUserManualSelect = false;
-                loadSummary();
+                if(confirm('新しい週を開始します。それ以前の記録はアーカイブへ送信されます。よろしいですか？')) {
+                    await fetch('/settings/week_start', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ start_date: dateVal })
+                    });
+                    isUserManualSelect = false;
+                    loadSummary();
+                }
             }
         }
 
         async function saveTargetPoints() {
+            if (!isEditable) return;
             const targetVal = document.getElementById('target-input').value;
-            if (targetVal) {
+            if (targetVal !== "") {
                 await fetch('/settings/target_points', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ target: targetVal })
+                    body: JSON.stringify({ target: parseInt(targetVal) })
                 });
                 loadSummary();
             }
         }
 
         async function archiveCurrentWeek() {
+            if (!isEditable) return;
             if (confirm('現在の週の集計を完了し、過去のアーカイブへ送信して新しい週を開始しますか？')) {
                 await fetch('/archive_current_week', { method: 'POST' });
                 isUserManualSelect = false;
@@ -429,6 +530,7 @@
         }
 
         async function addPoint(amt) {
+            if (!isEditable) return;
             await fetch('/add_point', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -438,6 +540,7 @@
         }
 
         async function addCustomPoint(sign) {
+            if (!isEditable) return;
             const input = document.getElementById('custom-pt');
             const val = parseInt(input.value);
             if (val && val > 0) {
@@ -447,11 +550,13 @@
         }
 
         async function undoLast() {
+            if (!isEditable) return;
             const res = await fetch('/undo_last', { method: 'POST' });
             if (res.ok) loadSummary();
         }
 
         async function deleteLog(id) {
+            if (!isEditable) return;
             if (confirm(`この記録を削除しますか？`)) {
                 await fetch('/delete_log', {
                     method: 'POST',
@@ -481,20 +586,54 @@
                 listDiv.innerHTML = '<div class="period-card" style="text-align:center; color:#666;">過去のアーカイブはありません</div>';
             } else {
                 data.archives.forEach((p) => {
+                    let dailyHtml = '';
+                    if (p.daily_details && p.daily_details.length > 0) {
+                        dailyHtml = '<div class="archive-details">';
+                        p.daily_details.forEach(d => {
+                            let valStr = Math.abs(d.total) >= 10000 
+                                ? (d.total / 10000).toFixed(1) + '万' 
+                                : d.total.toLocaleString();
+                            dailyHtml += `
+                                <div class="archive-day-box">
+                                    <div style="color:#6b21a8; font-size:0.68rem;">${d.date_label}</div>
+                                    <div style="font-weight:bold;">${valStr}</div>
+                                </div>
+                            `;
+                        });
+                        dailyHtml += '</div>';
+                    }
+
                     listDiv.innerHTML += `
                         <div class="period-card">
-                            <div>
-                                <strong>${p.label}</strong><br>
-                                <span style="color:#7e22ce; font-weight:bold;">${p.total.toLocaleString()} pt</span>
+                            <div class="period-header" onclick="toggleArchiveDetails(${p.id})">
+                                <div>
+                                    <strong>${p.label}</strong><br>
+                                    <span style="color:#7e22ce; font-weight:bold;">${p.total.toLocaleString()} pt</span>
+                                </div>
+                                <div>
+                                    <small style="color:#a855f7;">▼ 明細</small>
+                                    <span class="action-btn" style="color:#ef4444; cursor:pointer; font-size:0.8rem; font-weight:bold; margin-left:8px;" onclick="deleteArchive(${p.id}, '${p.label}')">削除 ✕</span>
+                                </div>
                             </div>
-                            <span style="color:#ef4444; cursor:pointer; font-size:0.8rem; font-weight:bold;" onclick="deleteArchive(${p.id}, '${p.label}')">削除 ✕</span>
+                            <div id="archive-detail-${p.id}" style="display:none;">
+                                ${dailyHtml}
+                            </div>
                         </div>
                     `;
                 });
             }
+            updateUIState();
+        }
+
+        function toggleArchiveDetails(id) {
+            const target = document.getElementById(`archive-detail-${id}`);
+            if (target) {
+                target.style.display = target.style.display === 'none' ? 'block' : 'none';
+            }
         }
 
         async function deleteArchive(id, label) {
+            if (!isEditable) return;
             if (confirm(`【確認】\n「${label}」のアーカイブ記録を削除しますか？`)) {
                 await fetch('/delete_archive', {
                     method: 'POST',
