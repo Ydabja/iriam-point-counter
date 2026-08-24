@@ -19,13 +19,22 @@ def init_db():
     c.execute('''CREATE TABLE IF NOT EXISTS settings
                  (key TEXT PRIMARY KEY, value TEXT)''')
     
-    # アーカイブ保存用テーブル
+    # アーカイブ保存用テーブル（開始日・終了日も管理）
     c.execute('''CREATE TABLE IF NOT EXISTS archives
                  (id INTEGER PRIMARY KEY AUTOINCREMENT,
                   period_label TEXT,
+                  start_date TEXT,
+                  end_date TEXT,
                   total_points INTEGER,
                   archived_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
     
+    # 既存テーブルの拡張（存在しない場合のみカラム追加）
+    try:
+        c.execute('ALTER TABLE archives ADD COLUMN start_date TEXT')
+        c.execute('ALTER TABLE archives ADD COLUMN end_date TEXT')
+    except:
+        pass
+
     c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
     if not c.fetchone():
         today_str = datetime.now().strftime('%Y-%m-%d')
@@ -49,12 +58,39 @@ def week_start_setting():
     conn = get_db()
     c = conn.cursor()
     data = request.get_json()
-    new_date = data.get('start_date')
-    if new_date:
-        c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (new_date,))
+    new_date_str = data.get('start_date')
+    
+    if new_date_str:
+        # 現在の週設定を取得
+        c.execute('SELECT value FROM settings WHERE key = "week_start_date"')
+        row = c.fetchone()
+        old_start_str = row['value'] if row else None
+
+        # 前の週のデータが存在する場合は自動アーカイブ
+        if old_start_str and old_start_str != new_date_str:
+            try:
+                old_start_dt = datetime.strptime(old_start_str, '%Y-%m-%d')
+                old_end_dt = old_start_dt + timedelta(days=6)
+                old_end_str = old_end_dt.strftime('%Y-%m-%d')
+
+                c.execute('''SELECT SUM(amount) FROM logs 
+                             WHERE created_at >= ? AND created_at <= ?''',
+                          (old_start_str + " 00:00:00", old_end_str + " 23:59:59"))
+                sum_row = c.fetchone()
+                old_total = sum_row[0] if sum_row and sum_row[0] is not None else 0
+
+                period_label = f"{old_start_dt.strftime('%Y/%m/%d')} 〜 {old_end_dt.strftime('%Y/%m/%d')}"
+                c.execute('INSERT INTO archives (period_label, start_date, end_date, total_points) VALUES (?, ?, ?, ?)',
+                          (period_label, old_start_str, old_end_str, old_total))
+            except Exception as e:
+                print("Auto Archive Error:", e)
+
+        # 新しい週の開始日を保存
+        c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (new_date_str,))
         conn.commit()
         conn.close()
         return jsonify({'status': 'success'})
+        
     conn.close()
     return jsonify({'status': 'error'}), 400
 
@@ -78,17 +114,28 @@ def archive_current_week():
     row = c.fetchone()
     base_start_str = row['value'] if row else datetime.now().strftime('%Y-%m-%d')
     
-    today_dt = datetime.now()
-    today_str = today_dt.strftime('%Y-%m-%d')
+    try:
+        start_dt = datetime.strptime(base_start_str, '%Y-%m-%d')
+    except:
+        start_dt = datetime.now()
+        
+    end_dt = start_dt + timedelta(days=6)
+    end_str = end_dt.strftime('%Y-%m-%d')
     
-    c.execute('''SELECT SUM(amount) FROM logs WHERE created_at >= ?''', (base_start_str + " 00:00:00",))
+    c.execute('''SELECT SUM(amount) FROM logs 
+                 WHERE created_at >= ? AND created_at <= ?''', 
+              (base_start_str + " 00:00:00", end_str + " 23:59:59"))
     sum_row = c.fetchone()
     current_total = sum_row[0] if sum_row and sum_row[0] is not None else 0
     
-    period_label = f"{base_start_str.replace('-', '/')} 〜 {today_dt.strftime('%Y/%m/%d')}"
+    period_label = f"{start_dt.strftime('%Y/%m/%d')} 〜 {end_dt.strftime('%Y/%m/%d')}"
     
-    c.execute('INSERT INTO archives (period_label, total_points) VALUES (?, ?)', (period_label, current_total))
-    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (today_str,))
+    c.execute('INSERT INTO archives (period_label, start_date, end_date, total_points) VALUES (?, ?, ?, ?)', 
+              (period_label, base_start_str, end_str, current_total))
+    
+    # 手動アーカイブ時は翌週の開始日へ移行
+    next_week_start = (start_dt + timedelta(days=7)).strftime('%Y-%m-%d')
+    c.execute('INSERT OR REPLACE INTO settings (key, value) VALUES ("week_start_date", ?)', (next_week_start,))
     
     conn.commit()
     conn.close()
@@ -126,19 +173,9 @@ def get_summary():
     target_points = int(t_row['value']) if t_row and t_row['value'].isdigit() else 50000
     
     try:
-        base_start = datetime.strptime(base_start_str, '%Y-%m-%d')
+        current_week_start = datetime.strptime(base_start_str, '%Y-%m-%d')
     except:
-        base_start = datetime.now()
-
-    today_dt = datetime.now().date()
-    diff_days = (today_dt - base_start.date()).days
-    if diff_days >= 7:
-        weeks_passed = diff_days // 7
-        current_week_start = base_start + timedelta(days=weeks_passed * 7)
-    elif diff_days < 0:
-        current_week_start = base_start
-    else:
-        current_week_start = base_start
+        current_week_start = datetime.now()
 
     current_week_start_str = current_week_start.strftime('%Y-%m-%d')
     week_end = current_week_start + timedelta(days=7)
@@ -223,11 +260,41 @@ def delete_log():
 def get_past_periods():
     conn = get_db()
     c = conn.cursor()
-    c.execute('SELECT id, period_label, total_points FROM archives ORDER BY id DESC')
+    c.execute('SELECT id, period_label, start_date, end_date, total_points FROM archives ORDER BY id DESC')
     archives_rows = c.fetchall()
-    conn.close()
 
-    result = [{'id': r['id'], 'label': r['period_label'], 'total': r['total_points']} for r in archives_rows]
+    result = []
+    for r in archives_rows:
+        start_date_str = r['start_date']
+        daily_details = []
+        
+        # 期間内の日別内訳を計算
+        if start_date_str:
+            try:
+                s_dt = datetime.strptime(start_date_str, '%Y-%m-%d')
+                for i in range(7):
+                    d_start = s_dt + timedelta(days=i)
+                    d_end = d_start + timedelta(days=1)
+                    c.execute('''SELECT SUM(amount) FROM logs 
+                                 WHERE created_at >= ? AND created_at < ?''',
+                              (d_start.strftime('%Y-%m-%d 00:00:00'), d_end.strftime('%Y-%m-%d 00:00:00')))
+                    d_row = c.fetchone()
+                    d_tot = d_row[0] if d_row and d_row[0] is not None else 0
+                    daily_details.append({
+                        'date_label': d_start.strftime('%m/%d'),
+                        'total': d_tot
+                    })
+            except Exception as e:
+                print(e)
+
+        result.append({
+            'id': r['id'],
+            'label': r['period_label'],
+            'total': r['total_points'],
+            'daily_details': daily_details
+        })
+
+    conn.close()
     return jsonify({'archives': result})
 
 @app.route('/delete_archive', methods=['POST'])
