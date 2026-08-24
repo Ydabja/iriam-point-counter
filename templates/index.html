@@ -191,10 +191,10 @@
             background: #a855f7;
             color: white;
             border: none;
-            padding: 8px;
+            padding: 10px;
             border-radius: 8px;
             font-weight: bold;
-            font-size: 0.8rem;
+            font-size: 0.85rem;
             cursor: pointer;
             margin-top: 6px;
         }
@@ -202,24 +202,12 @@
             background: #faf5ff;
             border: 1px solid #e9d5ff;
             border-radius: 10px;
-            padding: 10px;
+            padding: 10px 12px;
             margin-bottom: 8px;
-        }
-        .period-header {
             display: flex;
             justify-content: space-between;
-            font-weight: bold;
-            font-size: 0.9rem;
-            cursor: pointer;
-        }
-        .period-details {
-            display: grid;
-            grid-template-columns: repeat(7, 1fr);
-            gap: 2px;
-            margin-top: 8px;
-            padding-top: 8px;
-            border-top: 1px dashed #d8b4fe;
-            text-align: center;
+            align-items: center;
+            font-size: 0.85rem;
         }
         .btn-sm {
             background: #a855f7;
@@ -243,7 +231,6 @@
             <div class="sub-points">累計全期間: <span id="total-pt">0</span> pt</div>
         </div>
 
-        <!-- 目標進捗バー -->
         <div class="progress-box">
             <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:bold;">
                 <span>🎯 目標: <span id="target-pt-val">50,000</span> pt</span>
@@ -258,30 +245,12 @@
         </div>
     </div>
 
-    <!-- 2. 週と日別の設定 -->
+    <!-- 2. ポイント加算ボタン -->
     <div class="card">
-        <h2>📅 週の設定と日別集計</h2>
-        <div class="setting-box">
-            <span>開始日:</span>
-            <input type="date" id="week-start-input">
-            <button class="btn-sm" onclick="saveWeekStart()">週を設定</button>
-        </div>
-
-        <div class="setting-box">
-            <span>目標pt:</span>
-            <input type="number" id="target-input" placeholder="例: 50000">
-            <button class="btn-sm" onclick="saveTargetPoints()">目標保存</button>
-        </div>
-
+        <h2>➕ ポイント加算</h2>
         <div class="daily-grid" id="daily-grid"></div>
         <div class="active-target-hint" id="active-target-hint">現在の入力対象日: -</div>
 
-        <button class="btn-archive" onclick="archiveCurrentWeek()">📦 この週を確定してアーカイブへ送る</button>
-    </div>
-
-    <!-- 3. ポイント加算 -->
-    <div class="card">
-        <h2>➕ ポイント加算</h2>
         <div class="btn-grid">
             <button class="btn-pt" onclick="addPoint(1)">+1 pt</button>
             <button class="btn-pt" onclick="addPoint(100)">+100 pt</button>
@@ -299,14 +268,32 @@
         </div>
     </div>
 
-    <!-- 4. ミス消去 / 履歴 -->
+    <!-- 3. ミス消去 / 履歴 -->
     <div class="card">
         <h2>↩️ ミス消去 / 直近の履歴</h2>
         <button style="width:100%; background:#ef4444; color:white; border:none; padding:8px; border-radius:6px; font-weight:bold; font-size:0.8rem; cursor:pointer;" onclick="undoLast()">直前の操作を1件取り消す</button>
         <ul class="history-list" id="recent-logs"></ul>
     </div>
 
-    <!-- 5. 過去の記録 -->
+    <!-- 4. 週の設定とアーカイブ -->
+    <div class="card">
+        <h2>📅 週の設定 / アーカイブ操作</h2>
+        <div class="setting-box">
+            <span>開始日:</span>
+            <input type="date" id="week-start-input">
+            <button class="btn-sm" onclick="saveWeekStart()">週を設定</button>
+        </div>
+
+        <div class="setting-box">
+            <span>目標pt:</span>
+            <input type="number" id="target-input" placeholder="例: 50000">
+            <button class="btn-sm" onclick="saveTargetPoints()">目標保存</button>
+        </div>
+
+        <button class="btn-archive" onclick="archiveCurrentWeek()">📦 この週を確定してアーカイブへ送る</button>
+    </div>
+
+    <!-- 5. 過去の記録（消去対応） -->
     <div class="card">
         <button class="toggle-btn" onclick="togglePastRecords()">過去の全週記録 🍇</button>
         <div id="past-records-container" style="display: none; margin-top: 12px;">
@@ -328,7 +315,6 @@
                 document.getElementById('week-pt').innerText = (data.week_total || 0).toLocaleString();
                 document.getElementById('total-pt').innerText = (data.total_all || 0).toLocaleString();
 
-                // 目標の計算
                 const target = data.target_points || 50000;
                 const weekTotal = data.week_total || 0;
                 document.getElementById('target-input').value = target;
@@ -480,43 +466,42 @@
             const container = document.getElementById('past-records-container');
             if (container.style.display === 'none') {
                 container.style.display = 'block';
-                const res = await fetch('/get_past_periods');
-                const data = await res.json();
-                const listDiv = document.getElementById('past-periods-list');
-                listDiv.innerHTML = '';
-                if(!data.archives || data.archives.length === 0) {
-                    listDiv.innerHTML = '<div class="period-card" style="text-align:center; color:#666;">過去のアーカイブはありません</div>';
-                } else {
-                    data.archives.forEach((p, idx) => {
-                        let daysHtml = p.days.map(d => `
-                            <div>
-                                <div style="font-size:0.65rem; color:#6b21a8;">${d.date_label}</div>
-                                <div style="font-size:0.7rem; font-weight:bold;">${d.total.toLocaleString()}</div>
-                            </div>
-                        `).join('');
-
-                        listDiv.innerHTML += `
-                            <div class="period-card">
-                                <div class="period-header" onclick="toggleDetails(${idx})">
-                                    <span>${p.label}</span>
-                                    <span style="color:#7e22ce;">${p.total.toLocaleString()} pt ▼</span>
-                                </div>
-                                <div class="period-details" id="archive-detail-${idx}" style="display:none;">
-                                    ${daysHtml}
-                                </div>
-                            </div>
-                        `;
-                    });
-                }
+                await loadArchives();
             } else {
                 container.style.display = 'none';
             }
         }
 
-        function toggleDetails(idx) {
-            const target = document.getElementById(`archive-detail-${idx}`);
-            if (target) {
-                target.style.display = target.style.display === 'none' ? 'grid' : 'none';
+        async function loadArchives() {
+            const res = await fetch('/get_past_periods');
+            const data = await res.json();
+            const listDiv = document.getElementById('past-periods-list');
+            listDiv.innerHTML = '';
+            if(!data.archives || data.archives.length === 0) {
+                listDiv.innerHTML = '<div class="period-card" style="text-align:center; color:#666;">過去のアーカイブはありません</div>';
+            } else {
+                data.archives.forEach((p) => {
+                    listDiv.innerHTML += `
+                        <div class="period-card">
+                            <div>
+                                <strong>${p.label}</strong><br>
+                                <span style="color:#7e22ce; font-weight:bold;">${p.total.toLocaleString()} pt</span>
+                            </div>
+                            <span style="color:#ef4444; cursor:pointer; font-size:0.8rem; font-weight:bold;" onclick="deleteArchive(${p.id}, '${p.label}')">削除 ✕</span>
+                        </div>
+                    `;
+                });
+            }
+        }
+
+        async function deleteArchive(id, label) {
+            if (confirm(`【確認】\n「${label}」のアーカイブ記録を削除しますか？`)) {
+                await fetch('/delete_archive', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                await loadArchives();
             }
         }
 
