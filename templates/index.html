@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>IRIAM ポイントカウンター 🍇</title>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: #f3e8ff;
+            background-image: radial-gradient(#c084fc 20%, transparent 20%), radial-gradient(#a855f7 20%, transparent 20%);
+            background-size: 24px 24px;
+            background-position: 0 0, 12px 12px;
+            margin: 0;
+            padding: 15px;
+            color: #4c1d95;
+        }
+        .card {
+            background: rgba(255, 255, 255, 0.96);
+            padding: 18px;
+            border-radius: 18px;
+            margin-bottom: 15px;
+            box-shadow: 0 6px 16px rgba(112, 26, 117, 0.15);
+            border: 2px solid #d8b4fe;
+        }
+        h2 { margin-top: 0; color: #581c87; font-size: 1.15rem; display: flex; align-items: center; gap: 6px; }
+        
+        .total-display {
+            text-align: center;
+            padding: 16px;
+            background: linear-gradient(135deg, #7e22ce, #a855f7);
+            color: white;
+            border-radius: 14px;
+            box-shadow: 0 4px 10px rgba(126, 34, 206, 0.3);
+        }
+        .period-title { font-size: 0.9rem; opacity: 0.9; margin-bottom: 4px; }
+        .main-points { font-size: 2.2rem; font-weight: bold; }
+        .sub-points { font-size: 0.85rem; opacity: 0.85; margin-top: 6px; }
+
+        .btn-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        .btn-pt {
+            background: #9333ea;
+            color: white;
+            border: none;
+            padding: 14px 8px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+            box-shadow: 0 3px 6px rgba(0,0,0,0.12);
+        }
+        .btn-pt:active { background: #6b21a8; transform: scale(0.96); }
+        .btn-max { grid-column: span 2; background: #7e22ce; }
+
+        .custom-input-group {
+            display: flex;
+            gap: 8px;
+        }
+        .custom-input-group input {
+            flex: 1;
+            padding: 12px;
+            border: 2px solid #c084fc;
+            border-radius: 10px;
+            font-size: 1rem;
+            outline: none;
+        }
+        .custom-input-group button {
+            background: #a855f7;
+            color: white;
+            border: none;
+            padding: 0 18px;
+            border-radius: 10px;
+            font-weight: bold;
+            font-size: 0.95rem;
+            cursor: pointer;
+        }
+
+        .history-list {
+            list-style: none;
+            padding: 0;
+            margin: 10px 0 0 0;
+        }
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 14px;
+            background: #faf5ff;
+            border: 1px solid #e9d5ff;
+            border-radius: 10px;
+            margin-bottom: 8px;
+            font-size: 0.92rem;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+        .history-item:active { background: #f3e8ff; }
+        .delete-hint { color: #ef4444; font-size: 0.75rem; font-weight: bold; }
+
+        .toggle-btn {
+            width: 100%;
+            background: #6b21a8;
+            color: white;
+            border: none;
+            padding: 14px;
+            border-radius: 12px;
+            font-size: 1rem;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        .period-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 8px;
+            border-bottom: 1px solid #f3e8ff;
+            font-weight: bold;
+        }
+        .undo-main-btn {
+            width: 100%;
+            background: #ef4444;
+            color: white;
+            border: none;
+            padding: 10px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.85rem;
+            cursor: pointer;
+            margin-bottom: 8px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="card">
+        <h2>🍇 加算合計</h2>
+        <div class="total-display">
+            <div class="period-title" id="period-label">今週の集計</div>
+            <div class="main-points"><span id="week-pt">0</span> <span style="font-size: 1.2rem;">pt</span></div>
+            <div class="sub-points">累計全期間: <span id="total-pt">0</span> pt</div>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>➕ ポイント加算</h2>
+        <div class="btn-grid">
+            <button class="btn-pt" onclick="addPoint(1)">+1 pt</button>
+            <button class="btn-pt" onclick="addPoint(100)">+100 pt</button>
+            <button class="btn-pt" onclick="addPoint(500)">+500 pt</button>
+            <button class="btn-pt" onclick="addPoint(1000)">+1,000 pt</button>
+            <button class="btn-pt" onclick="addPoint(5000)">+5,000 pt</button>
+            <button class="btn-pt" onclick="addPoint(10000)">+10,000 pt</button>
+            <button class="btn-pt btn-max" onclick="addPoint(30000)">+30,000 pt</button>
+        </div>
+
+        <div class="custom-input-group">
+            <input type="number" id="custom-pt" placeholder="自由入力 (例: 250)">
+            <button onclick="addCustomPoint()">加算</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <h2>↩️ ミス消去（タップで差し引き）</h2>
+        <button class="undo-main-btn" onclick="undoLast()">一番最後の加算を取り消す</button>
+        <ul class="history-list" id="recent-logs"></ul>
+    </div>
+
+    <div class="card">
+        <button class="toggle-btn" onclick="togglePastRecords()">過去の記録 🍇</button>
+        <div id="past-records-container" style="display: none; margin-top: 15px;">
+            <div id="past-periods-list"></div>
+        </div>
+    </div>
+
+    <script>
+        async function loadSummary() {
+            const res = await fetch('/get_summary');
+            const data = await res.json();
+            
+            document.getElementById('period-label').innerText = `${data.current_period_label} の加算分`;
+            document.getElementById('week-pt').innerText = data.current_week_total.toLocaleString();
+            document.getElementById('total-pt').innerText = data.total_all.toLocaleString();
+
+            const recentList = document.getElementById('recent-logs');
+            recentList.innerHTML = '';
+            data.recent_logs.forEach(log => {
+                const li = document.createElement('li');
+                li.className = 'history-item';
+                const timeStr = log.time.split(' ')[1] || log.time;
+                li.innerHTML = `
+                    <span><strong>+${log.amount.toLocaleString()} pt</strong> <small style="color:#6b21a8;">(${timeStr})</small></span>
+                    <span class="delete-hint">タップで消去 ✕</span>
+                `;
+                li.onclick = () => deleteLog(log.id, log.amount);
+                recentList.appendChild(li);
+            });
+        }
+
+        async function addPoint(amt) {
+            await fetch('/add_point', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ amount: amt })
+            });
+            loadSummary();
+        }
+
+        async function addCustomPoint() {
+            const input = document.getElementById('custom-pt');
+            const val = parseInt(input.value);
+            if (val && val > 0) {
+                await addPoint(val);
+                input.value = '';
+            }
+        }
+
+        async function undoLast() {
+            const res = await fetch('/undo_last', { method: 'POST' });
+            if (res.ok) {
+                loadSummary();
+            } else {
+                alert('取り消せる履歴がありません');
+            }
+        }
+
+        async function deleteLog(id, amt) {
+            if (confirm(`+${amt.toLocaleString()} pt の加算を取り消しますか？`)) {
+                await fetch('/delete_log', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ id: id })
+                });
+                loadSummary();
+            }
+        }
+
+        let isPastLoaded = false;
+        async function togglePastRecords() {
+            const container = document.getElementById('past-records-container');
+            if (container.style.display === 'none') {
+                container.style.display = 'block';
+                if (!isPastLoaded) {
+                    const res = await fetch('/get_past_periods');
+                    const data = await res.json();
+                    const listDiv = document.getElementById('past-periods-list');
+                    listDiv.innerHTML = '';
+                    if(data.periods.length === 0) {
+                        listDiv.innerHTML = '<div class="period-item">データがありません</div>';
+                    } else {
+                        data.periods.forEach(p => {
+                            listDiv.innerHTML += `
+                                <div class="period-item">
+                                    <span>${p.label}</span>
+                                    <span style="color:#7e22ce;">${p.total.toLocaleString()} pt</span>
+                                </div>
+                            `;
+                        });
+                    }
+                    isPastLoaded = true;
+                }
+            } else {
+                container.style.display = 'none';
+            }
+        }
+
+        loadSummary();
+    </script>
+</body>
+</html>
