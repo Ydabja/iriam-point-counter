@@ -37,13 +37,34 @@
         .main-points { font-size: 2.2rem; font-weight: bold; }
         .sub-points { font-size: 0.8rem; opacity: 0.85; margin-top: 4px; }
 
+        .progress-box {
+            background: #faf5ff;
+            border: 1px solid #e9d5ff;
+            padding: 10px;
+            border-radius: 12px;
+            margin-top: 10px;
+        }
+        .progress-bar-bg {
+            background: #e9d5ff;
+            height: 14px;
+            border-radius: 7px;
+            overflow: hidden;
+            margin: 6px 0;
+        }
+        .progress-bar-fill {
+            background: linear-gradient(90deg, #a855f7, #ec4899);
+            height: 100%;
+            width: 0%;
+            transition: width 0.4s ease;
+        }
+
         .setting-box {
             background: #faf5ff;
             border: 1px solid #e9d5ff;
             padding: 10px 12px;
             border-radius: 12px;
             font-size: 0.85rem;
-            margin-bottom: 12px;
+            margin-bottom: 8px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -54,6 +75,7 @@
             padding: 4px;
             outline: none;
             font-size: 0.85rem;
+            width: 110px;
         }
 
         .daily-grid {
@@ -133,7 +155,7 @@
         .custom-input-group button {
             color: white;
             border: none;
-            padding: 0 16px;
+            padding: 0 14px;
             border-radius: 8px;
             font-weight: bold;
             cursor: pointer;
@@ -163,6 +185,18 @@
             font-size: 0.95rem;
             font-weight: bold;
             cursor: pointer;
+        }
+        .btn-archive {
+            width: 100%;
+            background: #a855f7;
+            color: white;
+            border: none;
+            padding: 8px;
+            border-radius: 8px;
+            font-weight: bold;
+            font-size: 0.8rem;
+            cursor: pointer;
+            margin-top: 6px;
         }
         .period-card {
             background: #faf5ff;
@@ -208,6 +242,20 @@
             <div class="main-points"><span id="week-pt">0</span> <span style="font-size: 1.1rem;">pt</span></div>
             <div class="sub-points">累計全期間: <span id="total-pt">0</span> pt</div>
         </div>
+
+        <!-- 目標進捗バー -->
+        <div class="progress-box">
+            <div style="display:flex; justify-content:space-between; font-size:0.8rem; font-weight:bold;">
+                <span>🎯 目標: <span id="target-pt-val">50,000</span> pt</span>
+                <span id="target-percent">0%</span>
+            </div>
+            <div class="progress-bar-bg">
+                <div class="progress-bar-fill" id="progress-bar-fill"></div>
+            </div>
+            <div style="text-align:right; font-size:0.75rem; color:#6b21a8;" id="target-remain-text">
+                あと 50,000 pt
+            </div>
+        </div>
     </div>
 
     <!-- 2. 週と日別の設定 -->
@@ -219,8 +267,16 @@
             <button class="btn-sm" onclick="saveWeekStart()">週を設定</button>
         </div>
 
+        <div class="setting-box">
+            <span>目標pt:</span>
+            <input type="number" id="target-input" placeholder="例: 50000">
+            <button class="btn-sm" onclick="saveTargetPoints()">目標保存</button>
+        </div>
+
         <div class="daily-grid" id="daily-grid"></div>
         <div class="active-target-hint" id="active-target-hint">現在の入力対象日: -</div>
+
+        <button class="btn-archive" onclick="archiveCurrentWeek()">📦 この週を確定してアーカイブへ送る</button>
     </div>
 
     <!-- 3. ポイント加算 -->
@@ -236,7 +292,6 @@
             <button class="btn-pt btn-max" onclick="addPoint(30000)">+30,000 pt</button>
         </div>
 
-        <!-- 自由入力（加算 & 減算） -->
         <div class="custom-input-group">
             <input type="number" id="custom-pt" placeholder="自由入力 (例: 250)">
             <button class="btn-add" onclick="addCustomPoint(1)">加算 (+)</button>
@@ -272,6 +327,24 @@
                 document.getElementById('period-label').innerText = `${data.period_label} の加算分`;
                 document.getElementById('week-pt').innerText = (data.week_total || 0).toLocaleString();
                 document.getElementById('total-pt').innerText = (data.total_all || 0).toLocaleString();
+
+                // 目標の計算
+                const target = data.target_points || 50000;
+                const weekTotal = data.week_total || 0;
+                document.getElementById('target-input').value = target;
+                document.getElementById('target-pt-val').innerText = target.toLocaleString();
+                
+                let pct = Math.min(100, Math.round((weekTotal / target) * 100));
+                if (isNaN(pct)) pct = 0;
+                document.getElementById('target-percent').innerText = `${pct}%`;
+                document.getElementById('progress-bar-fill').style.width = `${pct}%`;
+
+                const remain = target - weekTotal;
+                if (remain <= 0) {
+                    document.getElementById('target-remain-text').innerText = '🎉 目標達成！おめでとうございます！';
+                } else {
+                    document.getElementById('target-remain-text').innerText = `あと ${remain.toLocaleString()} pt`;
+                }
 
                 if (!isUserManualSelect) {
                     const matchToday = data.daily_breakdown.find(d => d.is_today);
@@ -344,6 +417,26 @@
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ start_date: dateVal })
                 });
+                isUserManualSelect = false;
+                loadSummary();
+            }
+        }
+
+        async function saveTargetPoints() {
+            const targetVal = document.getElementById('target-input').value;
+            if (targetVal) {
+                await fetch('/settings/target_points', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ target: targetVal })
+                });
+                loadSummary();
+            }
+        }
+
+        async function archiveCurrentWeek() {
+            if (confirm('現在の週の集計を完了し、過去のアーカイブへ送信して新しい週を開始しますか？')) {
+                await fetch('/archive_current_week', { method: 'POST' });
                 isUserManualSelect = false;
                 loadSummary();
             }
